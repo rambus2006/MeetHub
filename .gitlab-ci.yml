@@ -1,0 +1,138 @@
+stages:
+  - build
+  - test
+  - static-analysis
+  - deploy
+  - promote
+
+include:
+  - template: Code-Quality.gitlab-ci.yml
+  
+.aws_base:
+  image:
+    name: amazon/aws-cli:latest
+    entrypoint: [""]
+  id_tokens:
+    GITLAB_OIDC_TOKEN:
+      aud: "https://lab.ssafy.com"
+  before_script:
+    - yum install -y jq
+    - |
+      export AWS_ROLE_ARN=${AWS_IAM_ROLE_ARN}
+      export AWS_WEB_IDENTITY_TOKEN=${GITLAB_OIDC_TOKEN}
+      export AWS_DEFAULT_REGION=${AWS_REGION}
+      CREDS=$(aws sts assume-role-with-web-identity --role-arn $AWS_ROLE_ARN --role-session-name "GitLabRunner" --web-identity-token $AWS_WEB_IDENTITY_TOKEN --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' --output text)
+      export AWS_ACCESS_KEY_ID=$(echo "$CREDS" | awk '{print $1}')
+      export AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | awk '{print $2}')
+      export AWS_SESSION_TOKEN=$(echo "$CREDS" | awk '{print $3}')
+
+build_frontend:
+  stage: build
+  image: node:21-alpine
+  script:
+    - cd frontend
+    - echo "Building the frontend project..."
+    - npm install
+    - npm run build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      changes:
+        - frontend/**/*
+    - if: '$CI_COMMIT_BRANCH == "product"'
+  artifacts:
+    paths:
+      - frontend/dist/
+    expire_in: 1 hour
+
+build-backend:
+  stage: build
+  image: gradle:8.9.0-jdk21
+  script:
+    - cd backend
+    - echo "Building the backend project..."
+    - gradle build -x test
+  artifacts:
+    paths:
+      - backend/build/
+    expire_in: 1 hour
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      changes:
+        - backend/**/*
+
+code_quality:
+  stage: static-analysis
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      changes:
+        - backend/**/*
+
+test-backend:
+  stage: test
+  image: gradle:8.9.0-jdk21
+  needs:
+    - job: build-backend
+      artifacts: true
+  script:
+    - cd backend
+    - echo "Running backend tests..."
+    - gradle test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      changes:
+        - backend/**/*
+
+deploy_green:
+  stage: deploy
+  extends: .aws_base
+  needs:
+    - job: build_frontend
+      artifacts: true
+  script:
+    - CURRENT_GREEN_PATH=$(aws ssm get-parameter --name "${SSM_GREEN_PATH_PARAM}" --query "Parameter.Value" --output text | sed 's/^\///')
+    - echo "Current GREEN path is ${CURRENT_GREEN_PATH}"
+    - echo "Deploying to S3 path s3://${S3_BUCKET_NAME}/${CURRENT_GREEN_PATH}/"
+    - aws s3 sync ./frontend/dist/ s3://${S3_BUCKET_NAME}/${CURRENT_GREEN_PATH}/ --delete
+    - echo "✅ Deployment to Green path is complete. Ready for switching."
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "product"'
+
+promote:
+  stage: promote
+  extends: .aws_base
+  needs: 
+    - deploy_green
+  script:
+    - echo "🚀 Switching Production traffic to Green path..."
+    - CURRENT_BLUE_PATH=$(aws ssm get-parameter --name "${SSM_BLUE_PATH_PARAM}" --query "Parameter.Value" --output text)
+    - CURRENT_GREEN_PATH=$(aws ssm get-parameter --name "${SSM_GREEN_PATH_PARAM}" --query "Parameter.Value" --output text)
+    
+    - |
+      DISTRIBUTION_INFO=$(aws cloudfront get-distribution --id ${PRIMARY_CLOUDFRONT_ID})
+      ETAG=$(echo "$DISTRIBUTION_INFO" | jq -r '.ETag')
+      DISTRIBUTION_CONFIG=$(echo "$DISTRIBUTION_INFO" | jq '.Distribution.DistributionConfig')
+
+    - |
+      UPDATED_CONFIG=$(echo "$DISTRIBUTION_CONFIG" | jq --arg new_path "$CURRENT_GREEN_PATH" '.Origins.Items[0].OriginPath = $new_path')
+
+    - |
+      aws cloudfront update-distribution \
+        --id ${PRIMARY_CLOUDFRONT_ID} \
+        --distribution-config "$UPDATED_CONFIG" \
+        --if-match "$ETAG"
+    
+    - echo "Waiting for CloudFront distribution to be deployed..."
+    - aws cloudfront wait distribution-deployed --id ${PRIMARY_CLOUDFRONT_ID}
+
+    - echo "Invalidating CloudFront cache..."
+    - aws cloudfront create-invalidation --distribution-id ${PRIMARY_CLOUDFRONT_ID} --paths "/*"
+    - echo "✅ Production traffic is now on the new version."
+
+    - echo "🔄 Swapping Blue and Green roles for the next deployment..."
+    - aws ssm put-parameter --name "${SSM_BLUE_PATH_PARAM}" --value "${CURRENT_GREEN_PATH}" --type "String" --overwrite
+    - aws ssm put-parameter --name "${SSM_GREEN_PATH_PARAM}" --value "${CURRENT_BLUE_PATH}" --type "String" --overwrite
+    - echo "After swap New BLUE is ${CURRENT_GREEN_PATH}, New GREEN is ${CURRENT_BLUE_PATH}"
+    - echo "✅ CI/CD pipeline finished. Ready for the next deployment."
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "product"'

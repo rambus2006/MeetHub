@@ -1,0 +1,314 @@
+/* -------------------------------------------------------------
+   I. 기본 컨테이너 (.stage-shell)
+------------------------------------------------------------- */
+.stage-shell {
+  --sidebar-w: 88px; /* 우측 사이드바 폭 */
+
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.5rem;
+
+  /* 우측 사이드바 침범 방지 */
+  padding-right: var(--sidebar-w);
+
+  /* 가용 높이 안에서만 배치 (넘침 방지) */
+  min-height: 0;
+  height: 100%;
+
+  /* 기본 DOM 고정: 공유 → 카메라1 → 카메라2 */
+  grid-template-areas:
+    'share'
+    'cam1'
+    'cam2';
+  grid-template-columns: 1fr;
+  grid-auto-rows: minmax(0, auto);
+}
+
+/* -------------------------------------------------------------
+   II. 공통 타일 스타일
+------------------------------------------------------------- */
+.tile {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  min-height: 0;
+}
+.fill {
+  width: 100%;
+  height: 100%;
+}
+.empty {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* -------------------------------------------------------------
+   III. 영역별 스타일
+------------------------------------------------------------- */
+.area-share {
+  grid-area: share;
+  aspect-ratio: 16 / 9;
+  max-height: 100%;
+  align-self: center;
+  justify-self: center;
+}
+.area-cam1,
+.area-cam2 {
+  aspect-ratio: 4 / 3;
+  max-height: 100%;
+  align-self: center;
+  justify-self: center;
+}
+.area-cam1 {
+  grid-area: cam1;
+}
+.area-cam2 {
+  grid-area: cam2;
+}
+
+/* -------------------------------------------------------------
+   IV. 레이아웃 모드별 배치
+------------------------------------------------------------- */
+.stage-shell.share-only {
+  grid-template-areas: 'share';
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+.stage-shell.share-1cam {
+  grid-template-areas: 'share cam1';
+}
+.stage-shell.share-2cam {
+  grid-template-areas:
+    'share cam1'
+    'share cam2';
+}
+
+.stage-shell.cam-1 {
+  grid-template-areas: 'cam1';
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  place-content: center;
+}
+.stage-shell.cam-2plus {
+  grid-template-areas: 'cam1 cam2';
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr;
+}
+
+/* -------------------------------------------------------------
+   V. 내부 LiveKit 엘리먼트 스타일
+------------------------------------------------------------- */
+.stage-shell .lk-participant-tile,
+.stage-shell .lk-participant-tile > * {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+/* 실제 미디어 엘리먼트 크기 고정 + 넘치면 레터박스 */
+.stage-shell .lk-participant-tile video,
+.stage-shell .lk-participant-tile canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: transparent !important;
+}
+
+/* 화면공유는 절대 자르지 않기 */
+.area-share .lk-participant-tile video,
+.area-share .lk-participant-tile canvas {
+  object-fit: contain !important;
+}
+
+/* 타일 내부에서만 애니메이션/트랜지션 제거(다른 UI 영향 X) */
+.stage-shell .lk-participant-tile,
+.stage-shell .lk-participant-tile * {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* 레이아웃 재배치 시 페인트 범위 최적화(선택) */
+.stage-shell .lk-participant-tile {
+  contain: layout paint;
+}
+
+/* ===== 이름표/메타데이터 좌하단 고정 ===== */
+/* 타일 안에서 relative 기준 유지 */
+.stage-shell .lk-participant-tile {
+  position: relative;
+  overflow: hidden;
+}
+
+/* 이름표를 영상 콘텐츠 하단에 맞추기 */
+.stage-shell .lk-participant-metadata-item {
+  position: absolute !important;
+  bottom: 4% !important;
+  left: 12px !important;
+  transform: none !important;
+  margin: 0 !important;
+  pointer-events: none;
+  z-index: 10;
+  color: white;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.7);
+}
+
+/* 카메라 OFF 시 표시되는 기본 placeholder(회색 사람 아이콘) 숨기기 */
+.lk-participant-placeholder {
+  display: none !important;
+}
+
+/* 혹시 내부에 들어있는 svg 아이콘까지 완전히 숨기기 */
+.lk-participant-placeholder svg {
+  display: none !important;
+}
+/* -------------------------------------------------------------
+   VI. 반응형 레이아웃
+------------------------------------------------------------- */
+/* ① 1024px ~ 1279px : 공유 1행 전체, 아래에 캠 2열(1개면 가운데) */
+@media (min-width: 1280px) {
+  .stage-shell.share-1cam,
+  .stage-shell.share-2cam {
+    --cam-col: clamp(260px, 24vw, 520px); /* ← 여기 숫자만 취향대로 */
+    grid-template-columns: calc(100% - var(--cam-col)) var(--cam-col);
+  }
+  .stage-shell.share-1cam {
+    grid-template-areas: 'share cam1';
+    grid-template-rows: auto;
+  }
+  .stage-shell.share-2cam {
+    grid-template-areas:
+      'share cam1'
+      'share cam2';
+    grid-template-rows: auto auto;
+  }
+  .area-cam1,
+  .area-cam2 {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    justify-self: center;
+    align-self: start;
+  }
+  .area-cam1 .lk-participant-tile video,
+  .area-cam2 .lk-participant-tile video {
+    object-fit: contain !important;
+  }
+}
+
+/* 데스크톱: 화면공유를 최대화, 카메라 컬럼은 고정/상한 폭 */
+@media (max-width: 1279px) and (min-width: 1024px) {
+  .stage-shell.share-1cam {
+    grid-template-areas:
+      'share share'
+      'cam1  cam1';
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+  }
+  .stage-shell.share-2cam {
+    grid-template-areas:
+      'share share'
+      'cam1  cam2';
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+  }
+  .stage-shell.cam-2plus {
+    grid-template-areas: 'cam1 cam2';
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto;
+  }
+  .area-cam1,
+  .area-cam2 {
+    width: 100%;
+    max-width: none;
+    justify-self: center;
+    align-self: start;
+    aspect-ratio: 4 / 3;
+  }
+  .area-cam1 .lk-participant-tile video,
+  .area-cam2 .lk-participant-tile video {
+    object-fit: contain !important;
+  }
+}
+
+/* ────────────────────────────────────────── */
+/* ② 768px ~ 1023px : 전부 세로 스택(공유 → cam1 → cam2) */
+@media (max-width: 1023px) and (min-width: 768px) {
+  .stage-shell.share-1cam {
+    grid-template-areas:
+      'share'
+      'cam1';
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+  }
+  .stage-shell.share-2cam {
+    grid-template-areas:
+      'share'
+      'cam1'
+      'cam2';
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+  }
+  .stage-shell.cam-2plus {
+    grid-template-areas:
+      'cam1'
+      'cam2';
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+  }
+
+  .stage-shell {
+    height: auto; /* 잘림 방지 */
+    min-height: 0;
+    overflow-y: auto; /* 필요 시 스크롤 */
+  }
+
+  /* 캠은 가운데 작은 4:3 박스 */
+  .area-cam1,
+  .area-cam2 {
+    width: auto;
+    max-width: clamp(260px, 80vw, 560px);
+    justify-self: center;
+    align-self: start;
+    aspect-ratio: 4 / 3;
+  }
+  .area-cam1 .lk-participant-tile video,
+  .area-cam2 .lk-participant-tile video {
+    object-fit: contain !important;
+  }
+}
+
+/* ────────────────────────────────────────── */
+/* ③ ≤767px : 모바일 — 세로 스택 + 더 작은 캠 박스 */
+@media (max-width: 767px) {
+  .stage-shell.share-1cam {
+    grid-template-areas: 'share' 'cam1';
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+  }
+  .stage-shell.share-2cam {
+    grid-template-areas: 'share' 'cam1' 'cam2';
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+  }
+  .stage-shell.cam-2plus {
+    grid-template-areas: 'cam1' 'cam2';
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+  }
+
+  .stage-shell {
+    height: auto;
+    overflow-y: auto;
+  }
+
+  .area-cam1,
+  .area-cam2 {
+    width: auto;
+    max-width: clamp(220px, 82vw, 520px);
+    justify-self: center;
+    align-self: start;
+    aspect-ratio: 4 / 3;
+  }
+  .area-cam1 .lk-participant-tile video,
+  .area-cam2 .lk-participant-tile video {
+    object-fit: contain !important;
+  }
+}

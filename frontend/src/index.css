@@ -1,0 +1,128 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 가로 스크롤 전역 차단 */
+html, body, #root {
+  overflow-x: hidden;
+}
+
+@font-face {
+  font-family: 'Pretendard-Regular';
+  font-weight: normal;
+  src: url('./fonts/Pretendard-Regular.otf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Pretendard-Bold';
+  font-weight: normal;
+  src: url('./fonts/Pretendard-Bold.otf') format('truetype');
+}
+
+/* 전체 바디에 pretendard-regular, h 태그에 pretendard-bold */
+body {
+  font-family: 'Pretendard-Regular';
+}
+
+h1,
+h2,
+h3 {
+  font-family: 'Pretendard-Bold';
+}
+
+/* 스크롤바 숨기기 */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* PresentationSlide: 공유 화면 크기에 맞춘 박스(콘텐츠=박스) */
+.lk-share-fit {
+  --lk-video-fit: contain; /* 원본 비율 유지 */
+  display: grid;
+  place-items: center; /* 중앙 정렬 */
+}
+.lk-share-fit > * {
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+}
+.lk-share-fit video {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  background: white; /* 비디오 외곽이 박스로 보이도록 */
+}
+
+/* :root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+button:hover {
+  border-color: #646cff;
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+} */

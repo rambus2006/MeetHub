@@ -1,0 +1,1 @@
+# 모든 텍스트 파일을 LF로 강제* text=auto eol=lf# Java 관련 파일 명시적 지정*.java text eol=lf*.xml text eol=lf*.yml text eol=lf*.yaml text eol=lf*.properties text eol=lf*.gradle text eol=lf# Unix 스크립트/gradlew text eol=lf# Windows 배치 파일은 CRLF 유지*.bat text eol=crlf# 바이너리 파일 제외*.jar binary*.png binary*.jpg binary*.jpeg binary*.gif binary*.pdf binary*.zip binary
